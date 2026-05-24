@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar sesión | Walmart Sales Predictor</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="login-page">
+<div class="login-container">
+    <div class="login-card">
+        <div class="login-header">
+            <h1><span>📊</span> Walmart Sales Predictor</h1>
+            <p>Inicia sesión para continuar</p>
+        </div>
+        <form id="login-form" class="login-form">
+            <div class="form-group">
+                <label>Usuario</label>
+                <input type="text" id="username" required autocomplete="username" placeholder="admin">
+            </div>
+            <div class="form-group">
+                <label>Contraseña</label>
+                <input type="password" id="password" required autocomplete="current-password" placeholder="••••••••">
+            </div>
+            <button type="submit" id="login-btn">Entrar</button>
+            <div id="login-error" class="login-error" hidden></div>
+        </form>
+        <div class="login-hint">
+            <strong>Usuarios de prueba:</strong>
+            <ul>
+                <li><code>admin</code> / <code>admin123</code> — todo + reportes y usuarios</li>
+                <li><code>analista</code> / <code>analista123</code> — métricas, predecir, chat y reportes</li>
+                <li><code>visor</code> / <code>visor123</code> — métricas, chat y reportes</li>
+            </ul>
+        </div>
+    </div>
+</div>
+<script>
+    const token = localStorage.getItem('access_token');
+    if (token) {
+        window.location.href = '/';
+    }
+
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('login-btn');
+        const errDiv = document.getElementById('login-error');
+        errDiv.hidden = true;
+        btn.disabled = true;
+        btn.innerText = 'Entrando...';
+
+        const body = new URLSearchParams();
+        body.append('username', document.getElementById('username').value.trim());
+        body.append('password', document.getElementById('password').value);
+
+        try {
+            const res = await fetch('/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.detail || 'Error al iniciar sesión');
+            }
+            localStorage.setItem('access_token', data.access_token);
+            localStorage.setItem('username', data.username);
+            localStorage.setItem('role', data.role);
+            localStorage.setItem('role_label', data.role_label);
+            localStorage.setItem('permissions', JSON.stringify(data.permissions));
+            window.location.href = '/';
+        } catch (error) {
+            errDiv.innerText = error.message;
+            errDiv.hidden = false;
+        } finally {
+            btn.disabled = false;
+            btn.innerText = 'Entrar';
+        }
+    });
+</script>
+</body>
+</html>

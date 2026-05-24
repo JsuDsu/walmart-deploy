@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Walmart Sales Predictor | ML API</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="container">
+    <div class="main-card">
+        <div class="auth-bar">
+            <span class="auth-user">👤 <strong id="auth-username">---</strong></span>
+            <span id="auth-role-badge" class="role-badge">---</span>
+            <button type="button" class="btn-logout" id="logout-btn">Cerrar sesión</button>
+        </div>
+        <div class="header">
+            <h1>
+                <span>📊</span> Walmart Sales Predictor
+            </h1>
+            <p>Predicción de ventas semanales con Machine Learning | Modelo Random Forest (R² > 0.95)</p>
+        </div>
+        <div class="content">
+            <!-- Panel izquierdo: métricas y reentrenamiento -->
+            <div class="card" id="panel-metrics" data-permission="metrics">
+                <div class="card-header">
+                    <h2>📈 Rendimiento del modelo</h2>
+                </div>
+                <div class="card-body">
+                    <div class="metrics-grid" id="metrics-container">
+                        <div class="metric-card">
+                            <div class="metric-label">Modelo</div>
+                            <div class="metric-value" id="model-name">---</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">R² (validación)</div>
+                            <div class="metric-value" id="r2-score">---</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">MAE</div>
+                            <div class="metric-value" id="mae">---</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">RMSE</div>
+                            <div class="metric-value" id="rmse">---</div>
+                        </div>
+                    </div>
+                    <div class="params-box">
+                        <strong>⚙️ Hiperparámetros:</strong> <span id="best-params">Cargando...</span>
+                    </div>
+                    <hr style="margin: 1rem 0;" id="retrain-section-divider">
+                    <div id="retrain-section" data-permission="retrain">
+                        <label style="font-weight: 500;">🤖 Seleccionar modelo</label>
+                        <select id="model-select" class="form-group" style="width: 100%; margin-bottom: 0.5rem;">
+                            <option value="RandomForest">🌲 Random Forest (recomendado)</option>
+                            <option value="GradientBoosting">📈 Gradient Boosting</option>
+                            <option value="LinearRegression">📉 Regresión Lineal</option>
+                        </select>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="grid-search-checkbox">
+                            <label for="grid-search-checkbox">🔍 Usar búsqueda de hiperparámetros (GridSearchCV) - puede tomar varios minutos</label>
+                        </div>
+                        <button id="retrain-btn">🔄 Reentrenar modelo</button>
+                        <div id="retrain-message" style="margin-top: 0.5rem; font-size: 0.8rem;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel derecho: formulario de predicción -->
+            <div class="card" id="panel-predict" data-permission="predict">
+                <div class="card-header">
+                    <h2>🔮 Predecir ventas</h2>
+                </div>
+                <div class="card-body">
+                    <form id="prediction-form">
+                        <div class="form-group">
+                            <label>🏪 Ventas promedio históricas (USD)</label>
+                            <input type="number" id="Store_Avg_Sales" step="any" required placeholder="Ej: 1555264.40">
+                        </div>
+                        <div class="form-group">
+                            <label>📏 Tamaño de la tienda</label>
+                            <select id="Store_Size_Tier_Enc" required>
+                                <option value="0">Baja (0)</option>
+                                <option value="1">Media (1)</option>
+                                <option value="2">Alta (2)</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>📅 Semana (1-53)</label>
+                                <input type="number" id="Week" min="1" max="53" required>
+                            </div>
+                            <div class="form-group">
+                                <label>📆 Mes (1-12)</label>
+                                <input type="number" id="Month" min="1" max="12" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>🗓️ Año (2010-2012)</label>
+                                <input type="number" id="Year" min="2010" max="2012" required>
+                            </div>
+                            <div class="form-group">
+                                <label>🎄 Fin de año</label>
+                                <select id="Is_EndOfYear" required>
+                                    <option value="0">No (0)</option>
+                                    <option value="1">Sí (1) - Noviembre/Diciembre</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>🎉 Semana festiva</label>
+                            <select id="Holiday_Flag" required>
+                                <option value="0">No (0)</option>
+                                <option value="1">Sí (1)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>🌡️ Temperatura (°F)</label>
+                            <input type="number" id="Temperature" step="any" required>
+                        </div>
+                        <div class="form-group">
+                            <label>📈 CPI (Índice de Precios)</label>
+                            <input type="number" id="CPI" step="any" required>
+                        </div>
+                        <div class="form-group">
+                            <label>📉 Desempleo (%)</label>
+                            <input type="number" id="Unemployment" step="any" required>
+                        </div>
+                        <button type="submit" id="predict-btn">💵 Predecir ventas</button>
+                    </form>
+                    <div id="result-container" style="margin-top: 1.5rem;"></div>
+                </div>
+            </div>
+
+            <div class="card" id="panel-chat" data-permission="chat">
+                <div class="card-header">
+                    <h2>💬 Chatbot de ayuda</h2>
+                </div>
+                <div class="card-body">
+                    <div class="chat-info">Pregunta al asistente sobre el uso de la app, cómo conectar a phpMyAdmin, qué hace el modelo o cómo entrenarlo.</div>
+                    <div id="chat-history" class="chat-history"></div>
+                    <form id="chat-form" class="chat-form">
+                        <input type="text" id="chat-message" placeholder="Escribe tu pregunta..." required>
+                        <button type="submit">Enviar</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card card-full-width" id="panel-reports" data-permission="reports" style="display:none;">
+                <div class="card-header reports-header">
+                    <h2>📋 Reportes de ventas</h2>
+                    <div class="reports-actions">
+                        <select id="report-year-filter" title="Filtrar gráfico mensual"></select>
+                        <button type="button" id="export-csv-btn" class="btn-secondary">⬇️ Exportar CSV</button>
+                        <button type="button" id="export-pdf-btn" class="btn-secondary">📄 Exportar PDF</button>
+                        <button type="button" id="refresh-reports-btn" class="btn-secondary">🔄 Aplicar filtro</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="reports-date-filter">
+                        <label>
+                            Desde
+                            <input type="date" id="report-fecha-desde" required>
+                        </label>
+                        <label>
+                            Hasta
+                            <input type="date" id="report-fecha-hasta" required>
+                        </label>
+                        <button type="button" id="reset-date-filter" class="btn-secondary">↩️ Rango completo</button>
+                    </div>
+                    <p id="report-range-label" class="report-range-label"></p>
+                    <div id="reports-loading" class="reports-loading">Cargando reportes...</div>
+                    <div id="reports-content" hidden>
+                        <div class="reports-kpi-grid" id="reports-kpi"></div>
+                        <div class="reports-charts-grid">
+                            <div class="chart-box"><h3>Ventas por año</h3><canvas id="chart-year"></canvas></div>
+                            <div class="chart-box"><h3>Promedio mensual</h3><canvas id="chart-month"></canvas></div>
+                            <div class="chart-box"><h3>Por tamaño de tienda</h3><canvas id="chart-store"></canvas></div>
+                            <div class="chart-box"><h3>Festivos vs normales</h3><canvas id="chart-holiday"></canvas></div>
+                        </div>
+                        <div class="reports-tables-grid">
+                            <div class="report-table-box">
+                                <h3>🏆 Top 10 semanas con más ventas</h3>
+                                <table class="users-table" id="top-weeks-table">
+                                    <thead><tr><th>Año</th><th>Mes</th><th>Semana</th><th>Tienda</th><th>Ventas</th></tr></thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                            <div class="report-table-box">
+                                <h3>🔮 Predicciones recientes</h3>
+                                <table class="users-table" id="predictions-log-table">
+                                    <thead><tr><th>Fecha</th><th>Usuario</th><th>Semana</th><th>Ventas pred.</th></tr></thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" id="panel-users" data-permission="users" style="display:none;">
+                <div class="card-header">
+                    <h2>👥 Gestión de usuarios</h2>
+                </div>
+                <div class="card-body">
+                    <table class="users-table">
+                        <thead>
+                            <tr><th>Usuario</th><th>Rol</th><th>Activo</th></tr>
+                        </thead>
+                        <tbody id="users-table-body"></tbody>
+                    </table>
+                    <form id="user-create-form" class="user-create-form">
+                        <strong>Crear usuario</strong>
+                        <div class="form-row">
+                            <input type="text" id="new-username" placeholder="Usuario" required minlength="3">
+                            <input type="password" id="new-password" placeholder="Contraseña" required minlength="6">
+                            <select id="new-role" required>
+                                <option value="viewer">Visor</option>
+                                <option value="analyst">Analista</option>
+                                <option value="admin">Administrador</option>
+                            </select>
+                            <button type="submit">Crear</button>
+                        </div>
+                    </form>
+                    <div id="users-message" style="margin-top:0.5rem;font-size:0.8rem;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+        window.location.href = '/login';
+    }
+
+    const permissions = JSON.parse(localStorage.getItem('permissions') || '[]');
+
+    function hasPermission(p) {
+        return permissions.includes(p);
+    }
+
+    function logout() {
+        localStorage.clear();
+        window.location.href = '/login';
+    }
+
+    document.getElementById('logout-btn').addEventListener('click', logout);
+    document.getElementById('auth-username').innerText = localStorage.getItem('username') || '---';
+    const roleBadge = document.getElementById('auth-role-badge');
+    const role = localStorage.getItem('role') || '';
+    roleBadge.innerText = localStorage.getItem('role_label') || role;
+    roleBadge.classList.add(role);
+
+    function applyPermissionUI() {
+        document.querySelectorAll('[data-permission]').forEach(el => {
+            const perm = el.getAttribute('data-permission');
+            if (!hasPermission(perm)) {
+                el.style.display = 'none';
+            } else if (el.id === 'panel-users' || el.id === 'panel-reports') {
+                el.style.display = 'block';
+            }
+        });
+        if (!hasPermission('retrain')) {
+            const divider = document.getElementById('retrain-section-divider');
+            if (divider) divider.style.display = 'none';
+        }
+    }
+    applyPermissionUI();
+
+    async function apiFetch(url, options = {}) {
+        const headers = {
+            ...(options.headers || {}),
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+        };
+        const res = await fetch(url, { ...options, headers });
+        if (res.status === 401) {
+            logout();
+            throw new Error('Sesión expirada');
+        }
+        return res;
+    }
+
+    async function loadMetrics() {
+        if (!hasPermission('metrics')) return;
+        try {
+            const res = await apiFetch('/metrics');
+            const metrics = await res.json();
+            document.getElementById('model-name').innerText = metrics.model || '---';
+            if (metrics.cv_r2_mean) {
+                document.getElementById('r2-score').innerHTML = `${(metrics.cv_r2_mean * 100).toFixed(1)}% <span class="metric-unit">±${(metrics.cv_r2_std * 100).toFixed(1)}%</span>`;
+                document.getElementById('mae').innerHTML = metrics.cv_mae_mean.toFixed(4);
+                document.getElementById('rmse').innerHTML = metrics.cv_rmse_mean.toFixed(4);
+            } else {
+                document.getElementById('r2-score').innerText = '---';
+                document.getElementById('mae').innerText = '---';
+                document.getElementById('rmse').innerText = '---';
+            }
+            const paramsSpan = document.getElementById('best-params');
+            if (metrics.best_params && Object.keys(metrics.best_params).length > 0) {
+                paramsSpan.innerText = JSON.stringify(metrics.best_params);
+            } else {
+                paramsSpan.innerText = 'Parámetros por defecto';
+            }
+        } catch (error) {
+            console.error('Error cargando métricas:', error);
+        }
+    }
+
+    if (hasPermission('metrics')) loadMetrics();
+
+    if (hasPermission('retrain')) {
+    document.getElementById('retrain-btn').addEventListener('click', async () => {
+        const modelName = document.getElementById('model-select').value;
+        const useGridSearch = document.getElementById('grid-search-checkbox').checked;
+        const msgDiv = document.getElementById('retrain-message');
+        msgDiv.innerHTML = '<div class="alert alert-info">⏳ Reentrenando modelo, por favor espera...</div>';
+        const btn = document.getElementById('retrain-btn');
+        btn.disabled = true;
+        try {
+            const res = await apiFetch(`/retrain?model_name=${modelName}&use_grid_search=${useGridSearch}`, { method: 'POST' });
+            const data = await res.json();
+            if (res.ok) {
+                msgDiv.innerHTML = '<div class="alert alert-success">✅ Modelo reentrenado correctamente. Métricas actualizadas.</div>';
+                loadMetrics();
+            } else {
+                const detail = typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail);
+                msgDiv.innerHTML = `<div class="alert alert-error">❌ Error: ${detail}</div>`;
+            }
+        } catch (error) {
+            msgDiv.innerHTML = '<div class="alert alert-error">❌ Error de conexión con el servidor.</div>';
+        } finally {
+            btn.disabled = false;
+            setTimeout(() => { msgDiv.innerHTML = ''; }, 5000);
+        }
+    });
+    }
+
+    if (hasPermission('predict')) {
+    document.getElementById('prediction-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const datos = {
+            Store_Avg_Sales: parseFloat(document.getElementById('Store_Avg_Sales').value),
+            Store_Size_Tier_Enc: parseInt(document.getElementById('Store_Size_Tier_Enc').value),
+            Week: parseInt(document.getElementById('Week').value),
+            Month: parseInt(document.getElementById('Month').value),
+            Year: parseInt(document.getElementById('Year').value),
+            Is_EndOfYear: parseInt(document.getElementById('Is_EndOfYear').value),
+            Holiday_Flag: parseInt(document.getElementById('Holiday_Flag').value),
+            Temperature: parseFloat(document.getElementById('Temperature').value),
+            CPI: parseFloat(document.getElementById('CPI').value),
+            Unemployment: parseFloat(document.getElementById('Unemployment').value)
+        };
+        const resultDiv = document.getElementById('result-container');
+        resultDiv.innerHTML = '<div class="alert alert-info">⏳ Procesando predicción...</div>';
+        try {
+            const res = await apiFetch('/predict', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(datos)
+            });
+            const data = await res.json();
+            if (res.ok) {
+                const formatter = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'USD' });
+                resultDiv.innerHTML = `
+                    <div class="result-card">
+                        <h3>📊 Resultado</h3>
+                        <div class="prediction-value">${formatter.format(data.Weekly_Sales)}</div>
+                        <div style="font-size:0.75rem; color:#475569; margin-top:0.5rem;">log(ventas): ${data.log_Weekly_Sales.toFixed(4)}</div>
+                    </div>
+                `;
+            } else {
+                resultDiv.innerHTML = `<div class="alert alert-error">❌ Error: ${data.detail}</div>`;
+            }
+        } catch (error) {
+            resultDiv.innerHTML = '<div class="alert alert-error">❌ Error de conexión. ¿El servidor está corriendo?</div>';
+        }
+    });
+    }
+
+    const chatForm = document.getElementById('chat-form');
+    const chatMessageInput = document.getElementById('chat-message');
+    const chatHistory = document.getElementById('chat-history');
+
+    function appendChatMessage(text, sender) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `chat-message ${sender}`;
+        messageDiv.innerText = text;
+        chatHistory.appendChild(messageDiv);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+
+    if (hasPermission('chat')) {
+    chatForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const message = chatMessageInput.value.trim();
+        if (!message) return;
+        appendChatMessage(message, 'user');
+        chatMessageInput.value = '';
+        appendChatMessage('⏳ Pensando...', 'assistant');
+
+        try {
+            const res = await apiFetch('/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message })
+            });
+            const data = await res.json();
+            const last = chatHistory.querySelector('.chat-message.assistant:last-child');
+            if (last) {
+                last.innerText = data.answer || 'No entendí tu pregunta. Intenta con otra formulación.';
+            }
+        } catch (error) {
+            const last = chatHistory.querySelector('.chat-message.assistant:last-child');
+            if (last) {
+                last.innerText = '❌ Error de conexión con el chatbot. ¿El servidor está corriendo?';
+            }
+        }
+    });
+    }
+
+    async function loadUsers() {
+        if (!hasPermission('users')) return;
+        try {
+            const res = await apiFetch('/auth/users');
+            const users = await res.json();
+            const tbody = document.getElementById('users-table-body');
+            tbody.innerHTML = users.map(u => `
+                <tr>
+                    <td>${u.username}</td>
+                    <td>${u.role}</td>
+                    <td>${u.is_active ? 'Sí' : 'No'}</td>
+                </tr>
+            `).join('');
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    if (hasPermission('users')) {
+        loadUsers();
+        document.getElementById('user-create-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const msg = document.getElementById('users-message');
+            try {
+                const res = await apiFetch('/auth/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: document.getElementById('new-username').value.trim(),
+                        password: document.getElementById('new-password').value,
+                        role: document.getElementById('new-role').value
+                    })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    msg.innerHTML = '<div class="alert alert-success">Usuario creado.</div>';
+                    document.getElementById('user-create-form').reset();
+                    loadUsers();
+                } else {
+                    msg.innerHTML = `<div class="alert alert-error">${data.detail || 'Error'}</div>`;
+                }
+            } catch (err) {
+                msg.innerHTML = '<div class="alert alert-error">Error de conexión.</div>';
+            }
+            setTimeout(() => { msg.innerHTML = ''; }, 4000);
+        });
+    }
+
+    let reportsData = null;
+    const reportCharts = {};
+
+    function formatUsd(value) {
+        return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
+    }
+
+    function destroyReportCharts() {
+        Object.keys(reportCharts).forEach(key => {
+            if (reportCharts[key]) {
+                reportCharts[key].destroy();
+                delete reportCharts[key];
+            }
+        });
+    }
+
+    function getReportQueryParams() {
+        const desde = document.getElementById('report-fecha-desde').value;
+        const hasta = document.getElementById('report-fecha-hasta').value;
+        const params = new URLSearchParams();
+        if (desde) params.set('fecha_desde', desde);
+        if (hasta) params.set('fecha_hasta', hasta);
+        const qs = params.toString();
+        return qs ? `?${qs}` : '';
+    }
+
+    function updateRangeLabel(data) {
+        const label = document.getElementById('report-range-label');
+        if (!data.date_range) {
+            label.innerText = '';
+            return;
+        }
+        const dr = data.date_range;
+        if (data.empty) {
+            label.innerHTML = `<span class="alert alert-info" style="display:inline-block;padding:0.35rem 0.75rem;">${data.message || 'Sin datos'}</span>`;
+            return;
+        }
+        label.innerText = `Período aplicado: ${dr.applied_desde} → ${dr.applied_hasta} · ${dr.records_filtered.toLocaleString('es-ES')} registros`;
+    }
+
+    function renderReports(data) {
+        reportsData = data;
+        updateRangeLabel(data);
+        const kpi = document.getElementById('reports-kpi');
+
+        if (data.empty) {
+            kpi.innerHTML = '';
+            destroyReportCharts();
+            document.querySelector('#top-weeks-table tbody').innerHTML =
+                '<tr><td colspan="5">Sin datos en el rango seleccionado</td></tr>';
+            document.querySelector('#predictions-log-table tbody').innerHTML =
+                (data.recent_predictions || []).map(p => `
+                <tr><td>${new Date(p.created_at).toLocaleString('es-ES')}</td>
+                <td>${p.username}</td><td>S${p.week} · ${p.month}/${p.year}</td>
+                <td>${formatUsd(p.weekly_sales)}</td></tr>`).join('')
+                || '<tr><td colspan="4">Sin predicciones en este período</td></tr>';
+            return;
+        }
+
+        const s = data.summary;
+        kpi.innerHTML = `
+            <div class="report-kpi"><span>Registros</span><strong>${s.total_records.toLocaleString('es-ES')}</strong></div>
+            <div class="report-kpi"><span>Ventas totales</span><strong>${formatUsd(s.total_sales_usd)}</strong></div>
+            <div class="report-kpi"><span>Promedio semanal</span><strong>${formatUsd(s.avg_weekly_sales)}</strong></div>
+            <div class="report-kpi"><span>Máximo semanal</span><strong>${formatUsd(s.max_weekly_sales)}</strong></div>
+            <div class="report-kpi"><span>Temp. promedio</span><strong>${s.avg_temperature} °F</strong></div>
+            <div class="report-kpi"><span>Desempleo prom.</span><strong>${s.avg_unemployment}%</strong></div>
+        `;
+
+        const yearFilter = document.getElementById('report-year-filter');
+        const years = [...new Set(data.by_month.map(m => m.year))].sort();
+        yearFilter.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+        yearFilter.onchange = () => renderMonthChart(data);
+
+        destroyReportCharts();
+        reportCharts.year = new Chart(document.getElementById('chart-year'), {
+            type: 'bar',
+            data: {
+                labels: data.by_year.map(r => String(r.year)),
+                datasets: [{
+                    label: 'Ventas totales (USD)',
+                    data: data.by_year.map(r => r.total_sales),
+                    backgroundColor: '#0071CE'
+                }]
+            },
+            options: { responsive: true, plugins: { legend: { display: false } } }
+        });
+
+        renderMonthChart(data);
+
+        reportCharts.store = new Chart(document.getElementById('chart-store'), {
+            type: 'doughnut',
+            data: {
+                labels: data.by_store_size.map(r => r.label),
+                datasets: [{
+                    data: data.by_store_size.map(r => r.avg_sales),
+                    backgroundColor: ['#94a3b8', '#0071CE', '#003f6b']
+                }]
+            },
+            options: { responsive: true }
+        });
+
+        reportCharts.holiday = new Chart(document.getElementById('chart-holiday'), {
+            type: 'bar',
+            data: {
+                labels: data.holiday_comparison.map(r => r.label),
+                datasets: [{
+                    label: 'Promedio semanal (USD)',
+                    data: data.holiday_comparison.map(r => r.avg_sales),
+                    backgroundColor: ['#22c55e', '#f59e0b']
+                }]
+            },
+            options: { responsive: true, plugins: { legend: { display: false } } }
+        });
+
+        document.querySelector('#top-weeks-table tbody').innerHTML = data.top_weeks.map(w => `
+            <tr>
+                <td>${w.Year}</td><td>${w.Month}</td><td>${w.Week}</td>
+                <td>${w.store_size}</td><td>${formatUsd(w.Weekly_Sales)}</td>
+            </tr>
+        `).join('') || '<tr><td colspan="5">Sin datos</td></tr>';
+
+        document.querySelector('#predictions-log-table tbody').innerHTML =
+            (data.recent_predictions.length ? data.recent_predictions : []).map(p => `
+            <tr>
+                <td>${new Date(p.created_at).toLocaleString('es-ES')}</td>
+                <td>${p.username}</td>
+                <td>S${p.week} · ${p.month}/${p.year}</td>
+                <td>${formatUsd(p.weekly_sales)}</td>
+            </tr>
+        `).join('') || '<tr><td colspan="4">Aún no hay predicciones guardadas</td></tr>';
+    }
+
+    function renderMonthChart(data) {
+        const year = parseInt(document.getElementById('report-year-filter').value, 10);
+        const months = data.by_month.filter(m => m.year === year);
+        if (reportCharts.month) reportCharts.month.destroy();
+        reportCharts.month = new Chart(document.getElementById('chart-month'), {
+            type: 'line',
+            data: {
+                labels: months.map(m => m.month_label),
+                datasets: [{
+                    label: `Promedio ${year}`,
+                    data: months.map(m => m.avg_sales),
+                    borderColor: '#0071CE',
+                    backgroundColor: 'rgba(0,113,206,0.15)',
+                    fill: true,
+                    tension: 0.3
+                }]
+            },
+            options: { responsive: true }
+        });
+    }
+
+    let datasetDateRange = { min_date: '', max_date: '' };
+
+    async function initReportDateInputs() {
+        try {
+            const res = await apiFetch('/reports/date-range');
+            const d = await res.json();
+            datasetDateRange = d;
+            const desde = document.getElementById('report-fecha-desde');
+            const hasta = document.getElementById('report-fecha-hasta');
+            [desde, hasta].forEach(input => {
+                input.min = d.min_date;
+                input.max = d.max_date;
+            });
+            desde.value = d.min_date;
+            hasta.value = d.max_date;
+        } catch (e) {
+            console.error('No se pudo cargar rango de fechas', e);
+        }
+    }
+
+    async function loadReports() {
+        if (!hasPermission('reports')) return;
+        const desde = document.getElementById('report-fecha-desde').value;
+        const hasta = document.getElementById('report-fecha-hasta').value;
+        if (desde && hasta && desde > hasta) {
+            alert('La fecha "Desde" no puede ser posterior a "Hasta".');
+            return;
+        }
+        const loading = document.getElementById('reports-loading');
+        const content = document.getElementById('reports-content');
+        loading.hidden = false;
+        loading.innerText = 'Cargando reportes...';
+        content.hidden = true;
+        try {
+            const res = await apiFetch(`/reports/dashboard${getReportQueryParams()}`);
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Error');
+            renderReports(data);
+            loading.hidden = true;
+            content.hidden = false;
+        } catch (e) {
+            loading.innerHTML = `❌ ${e.message || 'No se pudieron cargar los reportes.'}`;
+            console.error(e);
+        }
+    }
+
+    if (hasPermission('reports')) {
+        initReportDateInputs().then(() => loadReports());
+        document.getElementById('refresh-reports-btn').addEventListener('click', loadReports);
+        document.getElementById('reset-date-filter').addEventListener('click', () => {
+            document.getElementById('report-fecha-desde').value = datasetDateRange.min_date;
+            document.getElementById('report-fecha-hasta').value = datasetDateRange.max_date;
+            loadReports();
+        });
+        document.getElementById('export-csv-btn').addEventListener('click', async () => {
+            try {
+                const res = await apiFetch(`/reports/export${getReportQueryParams()}`);
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'reporte_ventas_walmart.csv';
+                a.click();
+                URL.revokeObjectURL(url);
+            } catch (e) {
+                alert('Error al exportar CSV');
+            }
+        });
+
+        document.getElementById('export-pdf-btn').addEventListener('click', async () => {
+            const btn = document.getElementById('export-pdf-btn');
+            const originalText = btn.innerText;
+            btn.disabled = true;
+            btn.innerText = 'Generando PDF...';
+            try {
+                const res = await apiFetch(`/reports/export-pdf${getReportQueryParams()}`);
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || 'Error al generar PDF');
+                }
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'reporte_ventas_walmart.pdf';
+                a.click();
+                URL.revokeObjectURL(url);
+            } catch (e) {
+                alert(e.message || 'Error al exportar PDF');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = originalText;
+            }
+        });
+    }
+</script>
+</body>
+</html>

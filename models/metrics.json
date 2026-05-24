@@ -1,0 +1,21 @@
+{
+    "model": "RandomForest",
+    "best_params": {},
+    "cv_r2_mean": 0.9561185255728063,
+    "cv_r2_std": 0.04491813192049003,
+    "cv_mae_mean": 0.08154815899768895,
+    "cv_rmse_mean": 0.11341218966511213,
+    "train_size": 4860,
+    "features": [
+        "Store_Avg_Sales",
+        "Store_Size_Tier_Enc",
+        "Week",
+        "Month",
+        "Year",
+        "Is_EndOfYear",
+        "Holiday_Flag",
+        "Temperature",
+        "CPI",
+        "Unemployment"
+    ]
+}
