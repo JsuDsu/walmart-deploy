@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordRequestForm
 from dotenv import load_dotenv
 from .models import SalesInput, SalesOutput, ChatRequest, TokenResponse, UserCreate, UserPublic
-from .ml_model import load_or_train_model, get_metrics
+from ml_model import load_or_train_model, get_metrics
 from .auth_db import init_auth_schema, create_user, list_users, get_user_by_username
 from .security import (
     ROLE_LABELS,
