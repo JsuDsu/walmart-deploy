@@ -1,7 +1,7 @@
 import os
 import joblib
 import json
-from .training import train_model
+from training import train_model
 
 MODEL_DIR = "models"
 MODEL_PATH = os.path.join(MODEL_DIR, "walmart_model.pkl")
